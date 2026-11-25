@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calculator</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap">
+<style>
+  :root {
+    --bg: #e6eaee;
+    --body: #f7f9fb;
+    --screen: #10181f;
+    --screen-fg: #f1f5f8;
+    --screen-muted: #8a9aa8;
+    --key: #ffffff;
+    --key-fg: #141b22;
+    --key-edge: #cfd6dd;
+    --fn: #dde3e9;
+    --op: #0f766e;
+    --op-fg: #ffffff;
+    --eq: #e07a1f;
+    --eq-fg: #ffffff;
+    --shadow: 0 24px 60px rgba(16, 24, 31, .22), 0 2px 6px rgba(16, 24, 31, .12);
+    --display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+    --text: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b0f13; --body: #161d24; --screen: #080c10; --screen-fg: #f1f5f8; --screen-muted: #7c8c9a;
+      --key: #1f2830; --key-fg: #eef2f5; --key-edge: #0a0e12; --fn: #2b363f;
+      --op: #14998f; --op-fg: #04201d; --eq: #f0903a; --eq-fg: #2a1400;
+      --shadow: 0 24px 60px rgba(0, 0, 0, .6), 0 2px 6px rgba(0, 0, 0, .4);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0b0f13; --body: #161d24; --screen: #080c10; --screen-fg: #f1f5f8; --screen-muted: #7c8c9a;
+    --key: #1f2830; --key-fg: #eef2f5; --key-edge: #0a0e12; --fn: #2b363f;
+    --op: #14998f; --op-fg: #04201d; --eq: #f0903a; --eq-fg: #2a1400;
+    --shadow: 0 24px 60px rgba(0, 0, 0, .6), 0 2px 6px rgba(0, 0, 0, .4);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { min-height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--key-fg);
+    font-family: var(--text);
+    display: grid;
+    place-items: center;
+    padding-block: 28px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  [hidden] { display: none !important; }
+
+  .calc {
+    width: min(100%, 360px);
+    background: var(--body);
+    border-radius: 22px;
+    padding: 16px;
+    box-shadow: var(--shadow);
+  }
+  .screen {
+    background: var(--screen);
+    color: var(--screen-fg);
+    border-radius: 14px;
+    padding: 14px 18px 16px;
+    margin-bottom: 14px;
+    min-height: 116px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: flex-end;
+    overflow: hidden;
+  }
+  .expr {
+    min-height: 22px;
+    max-width: 100%;
+    font-size: 15px;
+    color: var(--screen-muted);
+    letter-spacing: .02em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    direction: rtl;
+    font-variant-numeric: tabular-nums;
+  }
+  .out {
+    max-width: 100%;
+    font-family: var(--display);
+    font-weight: 500;
+    font-size: 48px;
+    line-height: 1.1;
+    letter-spacing: -.01em;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    transition: font-size .12s ease;
+  }
+  .out.err { color: #ff8a7a; }
+
+  .keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .key {
+    font: 500 22px/1 var(--text);
+    height: 62px;
+    border: 0;
+    border-radius: 12px;
+    background: var(--key);
+    color: var(--key-fg);
+    box-shadow: 0 2px 0 var(--key-edge);
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform .08s ease, box-shadow .08s ease, filter .15s ease;
+  }
+  .key:hover { filter: brightness(.96); }
+  .key:active, .key.press { transform: translateY(2px); box-shadow: 0 0 0 var(--key-edge); filter: brightness(.9); }
+  .key.fn { background: var(--fn); font-size: 19px; }
+  .key.op { background: var(--op); color: var(--op-fg); font-size: 26px; }
+  .key.eq { background: var(--eq); color: var(--eq-fg); font-size: 26px; }
+  .key.sel { outline: 3px solid var(--screen-fg); outline-offset: -3px; }
+  .key:focus-visible { outline: 3px solid var(--op); outline-offset: 2px; }
+  .hint { margin: 14px 4px 0; text-align: center; font-size: 12px; color: var(--screen-muted); }
+
+  @media (max-width: 380px) {
+    .key { height: 56px; font-size: 20px; }
+    .out { font-size: 42px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition-duration: .01ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<main class="calc" aria-label="Calculator">
+  <div class="screen" role="group" aria-label="Display">
+    <div class="expr" id="expr"></div>
+    <div class="out" id="out" aria-live="polite">0</div>
+  </div>
+
+  <div class="keys" id="keys">
+    <button class="key fn" data-k="clear" aria-label="Clear all">AC</button>
+    <button class="key fn" data-k="back" aria-label="Backspace">&#9003;</button>
+    <button class="key fn" data-k="percent" aria-label="Percent">%</button>
+    <button class="key op" data-k="÷" aria-label="Divide">÷</button>
+
+    <button class="key" data-k="7">7</button>
+    <button class="key" data-k="8">8</button>
+    <button class="key" data-k="9">9</button>
+    <button class="key op" data-k="×" aria-label="Multiply">×</button>
+
+    <button class="key" data-k="4">4</button>
+    <button class="key" data-k="5">5</button>
+    <button class="key" data-k="6">6</button>
+    <button class="key op" data-k="−" aria-label="Subtract">−</button>
+
+    <button class="key" data-k="1">1</button>
+    <button class="key" data-k="2">2</button>
+    <button class="key" data-k="3">3</button>
+    <button class="key op" data-k="+" aria-label="Add">+</button>
+
+    <button class="key fn" data-k="sign" aria-label="Change sign">+/−</button>
+    <button class="key" data-k="0">0</button>
+    <button class="key" data-k=".">.</button>
+    <button class="key eq" data-k="equals" aria-label="Equals">=</button>
+  </div>
+  <p class="hint">Keyboard: 0-9 . + - * / Enter Backspace Esc %</p>
+</main>
+
+<script>
+var tokens = [];        // numbers and operators, e.g. [12, '+', 3, '×']
+var cur = '0';          // number being typed
+var awaiting = false;   // an operator was just pressed
+var done = false;       // "=" was just pressed
+var failed = false;     // division by zero etc.
+var exprText = '';
+
+function fmt(n) {
+  if (!isFinite(n)) return 'Error';
+  var r = parseFloat(n.toPrecision(12));
+  var s = String(r);
+  if (s.length > 14) s = r.toExponential(6).replace(/\.?0+e/, 'e');
+  return s;
+}
+
+function compute(list) {
+  var a = list.slice(), i;
+  for (i = 1; i < a.length; i += 2) {
+    if (a[i] === '×' || a[i] === '÷') {
+      var l = a[i - 1], r = a[i + 1];
+      if (a[i] === '÷' && r === 0) return NaN;
+      a.splice(i - 1, 3, a[i] === '×' ? l * r : l / r);
+      i -= 2;
+    }
+  }
+  var res = a[0];
+  for (i = 1; i < a.length; i += 2) res = a[i] === '+' ? res + a[i + 1] : res - a[i + 1];
+  return res;
+}
+
+function reset() { tokens = []; cur = '0'; awaiting = false; done = false; failed = false; exprText = ''; }
+
+function digit(d) {
+  if (failed) reset();
+  if (done || awaiting) { cur = '0'; done = false; awaiting = false; exprText = ''; }
+  if (cur.replace(/[-.]/g, '').length >= 15) return;
+  cur = (cur === '0') ? d : (cur === '-0' ? '-' + d : cur + d);
+}
+function dot() {
+  if (failed) reset();
+  if (done || awaiting) { cur = '0'; done = false; awaiting = false; exprText = ''; }
+  if (cur.indexOf('.') === -1) cur += '.';
+}
+function operator(op) {
+  if (failed) return;
+  if (done) { done = false; exprText = ''; }
+  if (awaiting) { tokens[tokens.length - 1] = op; return; }
+  tokens.push(Number(cur), op);
+  awaiting = true;
+}
+function equals() {
+  if (failed || tokens.length === 0) return;
+  var list = awaiting ? tokens.slice(0, -1) : tokens.concat(Number(cur));
+  var shown = list.map(tokenText).join(' ');
+  var res = compute(list);
+  tokens = []; awaiting = false; done = true;
+  exprText = shown + ' =';
+  if (isNaN(res) || !isFinite(res)) { cur = 'Error'; failed = true; }
+  else cur = fmt(res);
+}
+function clearAll() { reset(); }
+function backspace() {
+  if (failed) { reset(); return; }
+  if (done || awaiting) return;
+  cur = cur.length > 1 && !(cur.length === 2 && cur[0] === '-') ? cur.slice(0, -1) : '0';
+}
+function percent() {
+  if (failed) return;
+  cur = fmt(Number(cur) / 100); done = false; awaiting = false;
+}
+function sign() {
+  if (failed) return;
+  if (done) { done = false; exprText = ''; }
+  if (awaiting) { cur = '0'; awaiting = false; }
+  if (cur === '0') return;
+  cur = cur[0] === '-' ? cur.slice(1) : '-' + cur;
+}
+function tokenText(t) { return typeof t === 'number' ? fmt(t) : t; }
+
+function view() {
+  var expr = exprText, main = cur;
+  if (!done && tokens.length) {
+    expr = tokens.map(tokenText).join(' ') + (awaiting ? '' : ' ' + cur);
+    if (!awaiting) {
+      var live = compute(tokens.concat(Number(cur)));
+      main = (isNaN(live) || !isFinite(live)) ? 'Error' : fmt(live);   // real-time result
+    }
+  }
+  return { expr: expr, main: main };
+}
+
+var exprEl = document.getElementById('expr');
+var outEl = document.getElementById('out');
+var keysEl = document.getElementById('keys');
+
+function render() {
+  var v = view();
+  exprEl.textContent = v.expr;
+  outEl.textContent = v.main;
+  outEl.classList.toggle('err', v.main === 'Error');
+  var n = v.main.length;
+  outEl.style.fontSize = n > 13 ? '26px' : n > 10 ? '32px' : n > 8 ? '40px' : '';
+  Array.prototype.forEach.call(keysEl.querySelectorAll('.op'), function (b) {
+    b.classList.toggle('sel', awaiting && tokens[tokens.length - 1] === b.dataset.k);
+  });
+}
+
+function press(k) {
+  if (k >= '0' && k <= '9' && k.length === 1) digit(k);
+  else if (k === '.') dot();
+  else if (k === 'clear') clearAll();
+  else if (k === 'back') backspace();
+  else if (k === 'percent') percent();
+  else if (k === 'sign') sign();
+  else if (k === 'equals') equals();
+  else operator(k);
+  render();
+}
+
+keysEl.addEventListener('click', function (e) {
+  var b = e.target.closest('button');
+  if (b) press(b.dataset.k);
+});
+
+var KEYMAP = { '+': '+', '-': '−', '*': '×', 'x': '×', 'X': '×', '/': '÷', 'Enter': 'equals', '=': 'equals',
+  'Backspace': 'back', 'Escape': 'clear', 'Delete': 'clear', '%': 'percent', '.': '.', ',': '.' };
+
+document.addEventListener('keydown', function (e) {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  var k = (e.key >= '0' && e.key <= '9' && e.key.length === 1) ? e.key : KEYMAP[e.key];
+  if (!k) return;
+  e.preventDefault();
+  press(k);
+  var btn = keysEl.querySelector('[data-k="' + k + '"]');
+  if (btn) { btn.classList.add('press'); setTimeout(function () { btn.classList.remove('press'); }, 110); }
+});
+
+render();
+</script>
+</body>
+</html>
